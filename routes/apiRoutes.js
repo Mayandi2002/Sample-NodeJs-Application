@@ -1,11 +1,14 @@
 const express = require("express");
 const { ObjectId } = require("mongodb");
+const DBUtils = require("../utils/dbUtils");
 const router = express.Router();
+
+const demoTable = DBUtils.demoTable;
 
 // GET all data
 router.get("/", async (req, res) => {
     try {
-        const collection = req.db.collection("Mayandi_Collections");
+        const collection = req.db.collection(demoTable);
         const data = await collection.find({}).toArray();
         res.json(data);
     } catch (error) {
@@ -22,7 +25,7 @@ router.post("/add", async (req, res) => {
             return res.status(400).json({ error: "Invalid input data" });
         }
 
-        const collection = req.db.collection("Mayandi_Collections");
+        const collection = req.db.collection(demoTable);
         const result = await collection.insertOne(newData);
 
         res.status(201).json({ message: "Data inserted successfully", inserted_id: result.insertedId });
@@ -36,7 +39,7 @@ router.post("/add", async (req, res) => {
 router.get("/:id", async (req, res) => {
     try {
         const { id } = req.params;
-        const collection = req.db.collection("Mayandi_Collections");
+        const collection = req.db.collection(demoTable);
         const data = await collection.findOne({ _id: new ObjectId(id) });
 
         if (!data) {
@@ -54,7 +57,7 @@ router.get("/:id", async (req, res) => {
 router.delete("/:id", async (req, res) => {
     try {
         const { id } = req.params;
-        const collection = req.db.collection("Mayandi_Collections");
+        const collection = req.db.collection(demoTable);
         const result = await collection.deleteOne({ _id: new ObjectId(id) });
 
         if (result.deletedCount === 0) {
