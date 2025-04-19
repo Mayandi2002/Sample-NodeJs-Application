@@ -3,12 +3,31 @@ const { ObjectId } = require("mongodb");
 const DBUtils = require("../utils/dbUtils");
 const userRouter = express.Router();
 const userSchema = require("../models/userSchema");
+const jwtUtils = require("../utils/jwtUtils")
 
 
 const usersTable = DBUtils.usersTable;
 
+const authenticate = (req, res, next) => {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ error: "Authorization header missing" });
+    }
+
+    const token = authHeader.split(" ")[1];
+    const decoded = jwtUtils.verifyToken(token);
+
+    if (!decoded) {
+        return res.status(401).json({ error: "Invalid or expired token" });
+    }
+
+    req.user = decoded; // Attach user info to request
+    next();
+};
+
 // GET all data
-userRouter.get("/getAllUser", async (req, res) => {
+userRouter.get("/getAllUser", authenticate, async (req, res) => {
     try {
         const collection = req.db.collection(usersTable);
         const data = await collection.find({}).toArray();
@@ -16,6 +35,31 @@ userRouter.get("/getAllUser", async (req, res) => {
     } catch (error) {
         console.error("Error fetching data:", error);
         res.status(500).json({ error: "Database error" });
+    }
+});
+
+
+userRouter.post("/loginUser", async (req, res) => {
+    try {
+        const collection = req.db.collection(usersTable);
+        if(req.body.isMail && req.body.isMail === true){
+        const findEmail = await collection.findOne({ email: req.body.isMail });
+        }
+
+        if(req.body.userName){
+        const findUser = await collection.findOne({ userName: req.body.userName });
+        }
+
+        if(!findEmail){
+            return res.status(400).json({ message:"This email is already exists."}); 
+        }
+
+        if(!findUser){
+            return res.status(400).json({ message:"This Username is already exists."}); 
+        }
+    }
+    catch (error){
+
     }
 });
 
@@ -49,7 +93,9 @@ userRouter.post("/addUser", async (req, res) => {
 
         const result = await collection.insertOne(value);
 
-        res.status(200).json({ message: "Signup successfully", inserted_id: result.insertedId });
+        const token = jwtUtils.generateToken({ id: result.insertedId, email: req.body.email });
+
+        res.status(200).json({ message: "Signup successfully", inserted_id: result.insertedId, token: token });
     } catch (error) {
         console.error("Error inserting data:", error);
         res.status(500).json({ error: "Database error" });
@@ -57,7 +103,7 @@ userRouter.post("/addUser", async (req, res) => {
 });
 
 // GET by ID
-userRouter.get("/getUser/:id", async (req, res) => {
+userRouter.get("/getUser/:id", authenticate, async (req, res) => {
     try {
         const { id } = req.params;
         const collection = req.db.collection(usersTable);
@@ -75,7 +121,7 @@ userRouter.get("/getUser/:id", async (req, res) => {
 });
 
 // DELETE by ID
-userRouter.delete("/deleteUser/:id", async (req, res) => {
+userRouter.delete("/deleteUser/:id", authenticate, async (req, res) => {
     try {
         const { id } = req.params;
         const collection = req.db.collection(usersTable);
